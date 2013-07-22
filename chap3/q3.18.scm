@@ -24,18 +24,19 @@
              (has-loop? (cdr l)))))
 
 
-(print (has-loop?  (list 1)))
-(print (has-loop?  (list 1 2 3 4 5)))
-(print (has-loop?  (list '(1 2) '(3 4) 5 6)))
+(test-section "has-loop?")
+(test "No loop given" #f (lambda () (has-loop?  (list 1))))
+(test "No loop given" #f (lambda () (has-loop?  (list 1 2 3 4 5))))
+(test "No loop given" #f (lambda () (has-loop?  (list '(1 2) '(3 4) 5 6))))
 
 (define z1 '(1 2 3))
 (define z2 '(1 2 z1))
-(print (has-loop? (list z2 z1)))
+(test "No loop given" #f (lambda () (has-loop? (list z2 z1))))
 
 (define z3 '(1 2 3 4 5 6))
 (set-cdr! z3 z3)
-(print (has-loop? z3))
+(test "Simple loop" #t (lambda () (has-loop? z3)))
 
 (define z4 (list 1 2 3 4))
 (set! z4 (list 1 (cons z4 1) 2 3))
-(print (has-loop? z4))
+(test "Branch loop" #t (lambda () (has-loop? z4)))
