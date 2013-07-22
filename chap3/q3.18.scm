@@ -35,3 +35,7 @@
 (define z3 '(1 2 3 4 5 6))
 (set-cdr! z3 z3)
 (print (has-loop? z3))
+
+(define z4 (list 1 2 3 4))
+(set! z4 (list 1 (cons z4 1) 2 3))
+(print (has-loop? z4))
