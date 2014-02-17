@@ -9,8 +9,6 @@
 
 ; eval
 (define (eval exp env)
- (print "Call my eval")
- (print exp)
  (cond ((self-evaluating? exp) exp)
        ((variable? exp) (lookup-variable-value exp env))
        ((quoted? exp) (text-of-quotation exp))
@@ -146,6 +144,7 @@
        (list 'let let)
        (list 'list list)
        (list 'if if)
+       (list 'print print)
        (list '+ +)
        (list '- -)
        (list '* *)
@@ -301,7 +300,7 @@
 
 (define (user-print object)
  (if (compound-procedure? object)
-  (display (list 'compound-procedure(procedure-parameters object)
+  (display (list 'compound-procedure
                  (procedure-parameters object)
                  (procedure-body object)
                  '<procedure-env>))
@@ -310,8 +309,6 @@
 
 ; apply
 (define (my-apply procedure arguments)
- (print "Call my apply")
- (print procedure)
  (cond ((primitive-procedure? procedure)
         (apply-primitive-procedure procedure arguments))
        ((compound-procedure? procedure)
@@ -319,7 +316,8 @@
           (procedure-body procedure)
           (extend-environment
             (procedure-parameters procedure)
-            arguments(procedure-environment procedure))))
+            arguments
+            (procedure-environment procedure))))
        (else
         (error
          "Unknown procedure type -- APPLY" procedure))))
