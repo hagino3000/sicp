@@ -20,9 +20,7 @@
                         (lambda-body exp)
                         env))
        ((let? exp)
-        (my-apply (make-procedure (let-parameters exp)
-                        (let-body exp)
-                        env) (let-real-parameters exp)))
+        (eval (let->combination exp) env))
        ((begin? exp)
         (eval-sequence (begin-actions exp) env))
        ((cond? exp) (eval (cond->if exp) env))
@@ -90,6 +88,11 @@
 (define (let-real-parameters exp)
  (map cadr (cadr exp)))
 (define (let-body exp) (cddr exp))
+(define (let->combination exp)
+ (let ((names (let-parameters exp))
+       (values (let-real-parameters exp))
+       (body (let-body exp)))
+       (cons (make-lambda names body) values)))
 
 ; if
 (define (if? exp) (tagged-list? exp 'if))
