@@ -102,6 +102,63 @@
 (define (unassigned? val)
  (eq? val '*unassigned*))
 
+; Q 4.16
+;(lambda (vars)
+; (let ((u '*unassigned*)
+;       (v '*unassigned*))
+;  (set! u <e1>)
+;  (set! v <e2>)
+;  (<e3>)))
+(define (scan-out-defines exp)
+  ; 内部定義のみを抽出する
+  (define (definitions exp)
+   (cond
+    ((null? exp) '())
+    ((definition? (car exp))
+     (cons (car exp) (definitions (cdr exp))))
+    (else
+     (definitions (cdr exp)))))
+
+  ; 内部定義を除いた部分を得る
+  (define (filter-definitions exp)
+   (cond
+    ((null? exp) '())
+    ((definition? (car exp))
+     (filter-definitions (cdr exp)))
+    (else 
+     (cons (car exp) (filter-definitions (cdr exp))))))
+
+  ; *unassigned*
+  (define (unassignments definitions)
+    (map (lambda (definition) (list
+                               (definition-variable definition)
+                               ''*unassigned*
+                               )
+          ) definitions))
+
+  (define (assignments definitions)
+    (map (lambda (definition) (list 'set!
+                               (definition-variable definition)
+                               (definition-value definition))
+          ) definitions))
+
+  (define (make-let bindings body)
+   (append (list 'let bindings) body))
+
+  (let (
+        (definitions (definitions exp))
+        (body (filter-definitions exp))
+       )
+   (if (null? definitions)
+    ; 内部定義無しなので、そのまま返す?
+    exp
+    ; 内部定義をletに掃き出す
+    (list (make-let (unassignments definitions)
+                    (append (assignments definitions)
+                            body))))))
+
+
+
 ; if
 (define (if? exp) (tagged-list? exp 'if))
 (define (if-predicate exp) (cadr exp))
@@ -190,7 +247,15 @@
 (define (compound-procedure? p)
  (tagged-list? p 'procedure))
 (define (procedure-parameters p) (cadr p))
-(define (procedure-body p) (caddr p))
+; q 4.16
+;(define (procedure-body p) (caddr p))
+(define (procedure-body p)
+ (scan-out-defines (caddr p)))
+(use slib)
+(require 'trace)
+(trace procedure-body)
+(trace scan-out-defines)
+
 (define (procedure-environment p) (cadddr p))
 
 ; environment
