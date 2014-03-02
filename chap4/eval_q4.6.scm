@@ -157,7 +157,6 @@
        (list 'cons cons)
        (list 'null? null?)
        (list 'list list)
-       (list 'if if)
        (list 'print print)
        (list '+ +)
        (list '- -)
