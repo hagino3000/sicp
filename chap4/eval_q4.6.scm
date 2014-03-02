@@ -94,6 +94,10 @@
        (body (let-body exp)))
        (cons (make-lambda names body) values)))
 
+; unassigned
+(define (unassigned? val)
+ (eq? val '*unassigned*))
+
 ; if
 (define (if? exp) (tagged-list? exp 'if))
 (define (if-predicate exp) (cadr exp))
@@ -192,7 +196,10 @@
    (cond ((null? vars)
           (env-loop (enclosing-environment env)))
     ((eq? var (car vars))
-     (car vals))
+     (let ((result (car vals)))
+      (if (unassigned? result)
+          (error "Unassigned variable" var)
+          result)))
     (else (scan (cdr vars) (cdr vals)))))
   (if (eq? env the-empty-environment)
      (error "Unbound variable" var)
@@ -264,9 +271,6 @@
      (cons (eval (first-operand exps) env)
            (list-of-values (rest-operands exps) env))))
 
-; Q 4.1
-; consの前にそれぞれの結果を変数に格納すれば良い?
-
 
 (define (eval-if exp env)
  (if (true? (eval (if-predicate exp) env))
@@ -293,32 +297,6 @@
                    env)
  'ok)
 
-; print
-(define input-prompt ";;; M-Eval input:")
-(define output-prompt ";;; M-Eval value:")
-
-(define (driver-loop)
- (prompt-for-input input-prompt)
- (let ((input (read)))
-  (let ((output (eval input the-global-environment)))
-   (announce-output output-prompt)
-   (user-print output)))
- (driver-loop))
-
-(define (prompt-for-input string)
- (newline) (newline) (display string) (newline))
-
-(define (announce-output string)
- (newline) (display string) (newline))
-
-(define (user-print object)
- (if (compound-procedure? object)
-  (display (list 'compound-procedure
-                 (procedure-parameters object)
-                 (procedure-body object)
-                 '<procedure-env>))
-  (display object)))
-
 
 ; apply
 (define (my-apply procedure arguments)
@@ -334,6 +312,3 @@
        (else
         (error
          "Unknown procedure type -- APPLY" procedure))))
-
-(define the-global-environment (setup-environment))
-(driver-loop)
