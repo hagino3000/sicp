@@ -127,7 +127,7 @@
     ((null? exp) '())
     ((definition? (car exp))
      (filter-definitions (cdr exp)))
-    (else 
+    (else
      (cons (car exp) (filter-definitions (cdr exp))))))
 
   ; *unassigned*
@@ -195,15 +195,10 @@
         (fns (letrec-parameter-fns exp))
         (body (letrec-body exp))
         )
-    (
-     (print names)
-     (list (make-let (unassignments names)
-                     (append (assignments (letrec-definitions exp))
-                             body))))))
 
-(use slib)
-(require 'trace)
-(trace letrec->combination)
+     (make-let (unassignments names)
+                     (append (assignments (letrec-definitions exp))
+                             body))))
 
 ; if
 (define (if? exp) (tagged-list? exp 'if))
@@ -273,6 +268,7 @@
        (list '- -)
        (list '* *)
        (list '/ /)
+       (list '= =)
  ))
 (define (primitive-procedure? proc)
  (tagged-list? proc 'primitive))
@@ -297,10 +293,6 @@
 ;(define (procedure-body p) (caddr p))
 (define (procedure-body p)
  (scan-out-defines (caddr p)))
-(use slib)
-(require 'trace)
-(trace procedure-body)
-(trace scan-out-defines)
 
 (define (procedure-environment p) (cadddr p))
 
