@@ -1,4 +1,4 @@
-(load "./eval_q4.16.scm")
+(load "./eval_q4.20.scm")
 
 ; print
 (define input-prompt ";;; M-Eval input:")

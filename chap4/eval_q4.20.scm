@@ -1,0 +1,429 @@
+(define false #f)
+(define true #t)
+
+(define (true? x)
+ (not (eq? x false)))
+(define (false? x)
+ (eq? x false))
+
+
+; eval
+(define (eval exp env)
+ (cond ((self-evaluating? exp) exp)
+       ((variable? exp) (lookup-variable-value exp env))
+       ((quoted? exp) (text-of-quotation exp))
+       ((assignment? exp) (eval-assignment exp env))
+       ((definition? exp) (eval-definition exp env))
+       ((if? exp) (eval-if exp env))
+       ((lambda? exp)
+        (make-procedure (lambda-parameters exp)
+                        (lambda-body exp)
+                        env))
+;       ((let? exp)
+;        (my-apply (make-procedure (let-parameters exp)
+;                                  (let-body exp)
+;                  env) (let-real-parameters)))
+       ((let? exp)
+        (eval (let->combination exp) env))
+       ((letrec? exp)
+        (eval (letrec->combination exp) env))
+       ((begin? exp)
+        (eval-sequence (begin-actions exp) env))
+       ((cond? exp) (eval (cond->if exp) env))
+       ((application? exp)
+        (my-apply (eval (operator exp) env)
+               (list-of-values (operands exp) env)))
+       (else
+        (error "Unknown expression type -- EVAL" exp))))
+
+
+(define (self-evaluating? exp)
+ (cond ((number? exp) true)
+       ((string? exp) true)
+       (else false)))
+
+(define (variable? exp) (symbol? exp))
+
+; tagged-list
+(define (tagged-list? exp tag)
+ (if (pair? exp)
+     (eq? (car exp) tag)
+     false))
+
+; quote
+(define (quoted? exp)
+ (tagged-list? exp 'quote))
+
+(define (text-of-quotation exp) (cadr exp))
+
+
+; assignment
+(define (assignment? exp)
+ (tagged-list? exp 'set!))
+
+(define (assignment-variable exp) (cadr exp))
+(define (assignment-value exp) (caddr exp))
+
+; definition
+(define (definition? exp)
+ (tagged-list? exp 'define))
+
+(define (definition-variable exp)
+ (if (symbol? (cadr exp))
+     (cadr exp)
+     (caadr exp)))
+
+(define (definition-value exp)
+ (if (symbol? (cadr exp))
+     (caddr exp)
+     (make-lambda (cdadr exp)   ; 仮パラメタ
+                  (cddr exp)))) ; 本体
+
+; lambda
+(define (lambda? exp) (tagged-list? exp 'lambda))
+(define (lambda-parameters exp) (cadr exp))
+(define (lambda-body exp) (cddr exp))
+
+(define (make-lambda parameters body)
+ (cons 'lambda (cons parameters body)))
+
+; let
+(define (let? exp) (tagged-list? exp 'let))
+(define (let-parameters exp)
+ (map car (cadr exp)))
+(define (let-real-parameters exp)
+ (map cadr (cadr exp)))
+(define (let-body exp) (cddr exp))
+(define (let->combination exp)
+ (let ((names (let-parameters exp))
+       (values (let-real-parameters exp))
+       (body (let-body exp)))
+       (cons (make-lambda names body) values)))
+
+; unassigned
+(define (unassigned? val)
+ (eq? val '*unassigned*))
+
+; Q 4.16
+;(lambda (vars)
+; (let ((u '*unassigned*)
+;       (v '*unassigned*))
+;  (set! u <e1>)
+;  (set! v <e2>)
+;  (<e3>)))
+(define (scan-out-defines exp)
+  ; 内部定義のみを抽出する
+  (define (definitions exp)
+   (cond
+    ((null? exp) '())
+    ((definition? (car exp))
+     (cons (car exp) (definitions (cdr exp))))
+    (else
+     (definitions (cdr exp)))))
+
+  ; 内部定義を除いた部分を得る
+  (define (filter-definitions exp)
+   (cond
+    ((null? exp) '())
+    ((definition? (car exp))
+     (filter-definitions (cdr exp)))
+    (else 
+     (cons (car exp) (filter-definitions (cdr exp))))))
+
+  ; *unassigned*
+  (define (unassignments definitions)
+    (map (lambda (definition) (list
+                               (definition-variable definition)
+                               ''*unassigned*
+                               )
+          ) definitions))
+
+  (define (assignments definitions)
+    (map (lambda (definition) (list 'set!
+                               (definition-variable definition)
+                               (definition-value definition))
+          ) definitions))
+
+  (define (make-let bindings body)
+   (append (list 'let bindings) body))
+
+  (let (
+        (definitions (definitions exp))
+        (body (filter-definitions exp))
+       )
+   (if (null? definitions)
+    ; 内部定義無しなので、そのまま返す?
+    exp
+    ; 内部定義をletに掃き出す
+    (list (make-let (unassignments definitions)
+                    (append (assignments definitions)
+                            body))))))
+
+
+; 問 Q 4.20
+; letrec
+(define (letrec? exp) (tagged-list? exp 'letrec))
+(define (letrec-definitions exp)
+ (cadr exp))
+(define (letrec-parameters exp)
+ (map car (cadr exp)))
+(define (letrec-parameter-fns exp)
+ (map cadr (cadr exp)))
+(define (letrec-body exp) (cddr exp))
+
+(define (letrec->combination exp)
+  ; *unassigned*
+  (define (unassignments names)
+    (map (lambda (name) (list
+                          name
+                          ''*unassigned*
+                          )
+           ) names))
+
+  ; (set! name fn) の作成
+  (define (assignments definitions)
+    (map (lambda (definition) (list 'set!
+                                    (car definition)
+                                    (cadr definition))
+           ) definitions))
+
+  (define (make-let bindings body)
+    (append (list 'let bindings) body))
+
+  (let (
+        (names (letrec-parameters exp))
+        (fns (letrec-parameter-fns exp))
+        (body (letrec-body exp))
+        )
+    (
+     (print names)
+     (list (make-let (unassignments names)
+                     (append (assignments (letrec-definitions exp))
+                             body))))))
+
+(use slib)
+(require 'trace)
+(trace letrec->combination)
+
+; if
+(define (if? exp) (tagged-list? exp 'if))
+(define (if-predicate exp) (cadr exp))
+(define (if-consequent exp) (caddr exp))
+(define (if-alternative exp)
+ (if (not (null? (cdddr exp)))
+     (cadddr exp)
+     'false))
+
+(define (make-if predicate consequent alternative)
+ (list 'if predicate consequent alternative))
+
+; begin
+(define (begin? exp) (tagged-list? exp 'begin))
+(define (begin-actions exp) (cdr exp))
+(define (last-exp? seq) (null? (cdr seq)))
+(define (first-exp seq) (car seq))
+(define (rest-exps seq) (cdr seq))
+(define (sequence->exp seq)
+ (cond ((null? seq) seq)
+       ((last-exp? seq) (first-exp seq))
+       (else (make-begin seq))))
+
+(define (make-begin seq)
+ (cons 'begin seq))
+
+; 式
+(define (application? exp) (pair? exp))
+(define (operator exp) (car exp))
+(define (operands  exp) (cdr exp))
+(define (no-operands? ops) (null? ops))
+(define (first-operand ops) (car ops))
+(define (rest-operands ops) (cdr ops))
+
+; cond
+(define (cond? exp) (tagged-list? exp 'cond))
+(define (cond-clauses exp) (cdr exp))
+(define (cond-else-clause? clause)
+ (eq? (cond-predicate clause) 'else))
+(define (cond-actions clause) (cdr clause))
+(define (cond->if exp)
+ (expand-clauses (cond-clauses exp)))
+(define (expand-clauses clauses)
+ (if (null? clauses)
+  'false
+  (let ((first (car clauses))
+        (rest (cdr clauses)))
+   (if (cond-else-clause? first)
+       (if (null? rest)
+           (sequence->exp (cond-actions first))
+           (error "ELSE clause isn't last -- COND->IF"
+                  clauses))
+       (make-if (cond-predicate first)
+                (sequence->exp (cond-actions first))
+                (expand-clauses rest))))))
+
+; procedure
+(define primitive-procedures
+ (list (list 'car car)
+       (list 'cdr cdr)
+       (list 'cons cons)
+       (list 'null? null?)
+       (list 'list list)
+       (list 'print print)
+       (list '+ +)
+       (list '- -)
+       (list '* *)
+       (list '/ /)
+ ))
+(define (primitive-procedure? proc)
+ (tagged-list? proc 'primitive))
+(define (primitive-implementation proc) (cadr proc))
+(define (primitive-procedure-names)
+ (map car
+  primitive-procedures))
+(define (primitive-procedure-objects)
+ (map (lambda (proc) (list 'primitive (cadr proc)))
+  primitive-procedures))
+(define apply-in-underlying-acheme apply)
+(define (apply-primitive-procedure proc args)
+ (apply-in-underlying-acheme
+  (primitive-implementation proc) args))
+
+(define (make-procedure parameters body env)
+ (list 'procedure parameters body env))
+(define (compound-procedure? p)
+ (tagged-list? p 'procedure))
+(define (procedure-parameters p) (cadr p))
+; q 4.16
+;(define (procedure-body p) (caddr p))
+(define (procedure-body p)
+ (scan-out-defines (caddr p)))
+(use slib)
+(require 'trace)
+(trace procedure-body)
+(trace scan-out-defines)
+
+(define (procedure-environment p) (cadddr p))
+
+; environment
+(define (lookup-variable-value var env)
+ (define (env-loop env)
+  (define (scan vars vals)
+   (cond ((null? vars)
+          (env-loop (enclosing-environment env)))
+    ((eq? var (car vars))
+     (let ((result (car vals)))
+      (if (unassigned? result)
+          (error "Unassigned variable" var)
+          result)))
+    (else (scan (cdr vars) (cdr vals)))))
+  (if (eq? env the-empty-environment)
+     (error "Unbound variable" var)
+     (let ((frame (first-frame env)))
+      (scan (frame-variables frame)
+            (frame-values frame)))))
+  (env-loop env))
+(define (extend-environment vars vals base-env)
+ (if (= (length vars) (length vals))
+     (cons (make-frame vars vals) base-env)
+     (if (< (length vars) (length vals))
+         (error "Too many arguments supplied" vars vals)
+         (error "Too few arguments supplied" vars vals))))
+
+(define (set-variable-value! var val env)
+ (define (env-loop env)
+  (define (scan vars vals)
+   (cond ((null? vars)
+          (env-loop (enclosing-environment env)))
+         ((eq? var (car vars))
+          (set-car! vals val))
+         (else (scan (cdr vars) (cdr vals)))))
+  (if (eq? env the-empty-environment)
+   (error "Unbound variable -- SET!" var)
+   (let ((frame (first-frame env)))
+    (scan (frame-variables frame)
+          (frame-values frame)))))
+  (env-loop env))
+
+(define (define-variable! var val env)
+ (let ((frame (first-frame env)))
+  (define (scan vars vals)
+   (cond ((null? vars)
+          (add-binding-to-frame! var val frame))
+         ((eq? var (car vars))
+          (set-car! vals val))
+         (else (scan (cdr vars) (cdr vals)))))
+  (scan (frame-variables frame)
+        (frame-values frame))))
+
+(define (enclosing-environment env) (cdr env))
+(define (first-frame env) (car env))
+(define the-empty-environment '())
+
+
+(define (make-frame variables values)
+ (cons variables values))
+
+(define (frame-variables frame) (car frame))
+(define (frame-values frame) (cdr frame))
+(define (add-binding-to-frame! var val frame)
+ (set-car! frame (cons var (car frame)))
+ (set-cdr! frame (cons val (cdr frame))))
+
+(define (setup-environment)
+ (let ((initial-env
+        (extend-environment (primitive-procedure-names)
+                            (primitive-procedure-objects)
+                            the-empty-environment)))
+  (define-variable! 'true true initial-env)
+  (define-variable! 'false false initial-env)
+  initial-env))
+
+
+
+(define (list-of-values exps env)
+ (if (no-operands? exps)
+     '()
+     (cons (eval (first-operand exps) env)
+           (list-of-values (rest-operands exps) env))))
+
+
+(define (eval-if exp env)
+ (if (true? (eval (if-predicate exp) env))
+     (eval (if-consequent exp) env)
+     (eval (if-alternative exp) env)))
+
+
+(define (eval-sequence exps env)
+ (cond ((last-exp? exps) (eval (first-exp exps) env))
+       (else (eval (first-exp exps) env)
+             (eval-sequence (rest-exps exps) env))))
+
+
+(define (eval-assignment exp env)
+ (set-variable-value! (assignment-variable exp)
+                      (eval (assignment-value exp) env)
+                      env)
+ 'ok)
+
+
+(define (eval-definition exp env)
+ (define-variable! (definition-variable exp)
+                   (eval (definition-value exp) env)
+                   env)
+ 'ok)
+
+
+; apply
+(define (my-apply procedure arguments)
+ (cond ((primitive-procedure? procedure)
+        (apply-primitive-procedure procedure arguments))
+       ((compound-procedure? procedure)
+        (eval-sequence
+          (procedure-body procedure)
+          (extend-environment
+            (procedure-parameters procedure)
+            arguments
+            (procedure-environment procedure))))
+       (else
+        (error
+         "Unknown procedure type -- APPLY" procedure))))
