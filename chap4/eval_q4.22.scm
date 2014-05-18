@@ -21,6 +21,7 @@
        ((definition? exp) (analyze-definition exp))
        ((if? exp) (analyze-if exp))
        ((lambda? exp) (analyze-lambda exp))
+       ((let? exp) (let->combination exp))
        ((begin? exp) (analyze-sequence (begin-actions exp)))
        ((cond? exp) (analyze (cond->if exp)))
        ((application? exp) (analyze-application exp))
@@ -119,7 +120,7 @@
  (let ((names (let-parameters exp))
        (values (let-real-parameters exp))
        (body (let-body exp)))
-       (cons (make-lambda names body) values)))
+       (analyze (cons (make-lambda names body) values))))
 
 ; unassigned
 (define (unassigned? val)
