@@ -252,7 +252,7 @@
 (define (rest-exps seq) (cdr seq))
 
 (define (analyze-sequence exps)
- (define (sequentally proc1 proc2)
+ (define (sequentially proc1 proc2)
   (lambda (env) (proc1 env) (proc2 env)))
  (define (loop first-proc rest-procs)
   (if (null? rest-procs)
