@@ -1,5 +1,5 @@
-; $B=i4|HG(B
-; $B2r@O;~$K<jB3$N%j%9%H$rAv::$9$k(B
+; 初期版
+; 解析時に手続のリストを走査する
 (define (analyze-sequence exps)
  (define (sequentally proc1 proc2)
   (lambda (env) (proc1 env) (proc2 env)))
@@ -14,7 +14,7 @@
   (loop (car procs) (cdr procs))))
 
 ; Alyssa
-; $B<B9T;~$K<jB3$N%j%9%H$rAv::$9$k(B
+; 実行時に手続のリストを走査する
 (define (analyze-sequence exps)
  (define (execute-sequence procs env)
   (cond ((null? (cdr procs)) ((car procs) env))
