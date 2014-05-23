@@ -21,7 +21,7 @@
        ((definition? exp) (analyze-definition exp))
        ((if? exp) (analyze-if exp))
        ((lambda? exp) (analyze-lambda exp))
-       ((let? exp) (let->combination exp))
+       ((let? exp) (analyze-let->combination exp))
        ((begin? exp) (analyze-sequence (begin-actions exp)))
        ((cond? exp) (analyze (cond->if exp)))
        ((application? exp) (analyze-application exp))
@@ -116,11 +116,18 @@
 (define (let-real-parameters exp)
  (map cadr (cadr exp)))
 (define (let-body exp) (cddr exp))
-(define (let->combination exp)
+
+(define (analyze-let->combination exp)
  (let ((names (let-parameters exp))
        (values (let-real-parameters exp))
        (body (let-body exp)))
        (analyze (cons (make-lambda names body) values))))
+
+(define (let->combination exp)
+ (let ((names (let-parameters exp))
+       (values (let-real-parameters exp))
+       (body (let-body exp)))
+       (cons (make-lambda names body) values)))
 
 ; unassigned
 (define (unassigned? val)
