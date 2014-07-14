@@ -1,13 +1,13 @@
 (load "./eval_q4.27.scm")
 
 ; print
-(define input-prompt ";;; M-Eval input:")
-(define output-prompt ";;; M-Eval value:")
+(define input-prompt ";;; L-Eval input:")
+(define output-prompt ";;; L-Eval value:")
 
 (define (driver-loop)
  (prompt-for-input input-prompt)
  (let ((input (read)))
-  (let ((output (eval input the-global-environment)))
+  (let ((output (actual-value input the-global-environment)))
    (announce-output output-prompt)
    (user-print output)))
  (driver-loop))

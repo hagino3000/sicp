@@ -1,7 +1,6 @@
 ; p238
 ; q4.27
 ; 遅延評価
-;
 (define false #f)
 (define true #t)
 
@@ -10,51 +9,56 @@
 (define (false? x)
  (eq? x false))
 
+
 ; eval
 (define (eval exp env)
- ((analyze exp) env))
-
-(define (analyze exp)
- (cond ((self-evaluating? exp) (analyze-self-evaluating exp))
-       ((quoted? exp) (analyze-quoted exp))
-       ((variable? exp) (analyze-variable exp))
-       ((assignment? exp) (analyze-assignment exp))
-       ((definition? exp) (analyze-definition exp))
-       ((if? exp) (analyze-if exp))
-       ((lambda? exp) (analyze-lambda exp))
-       ((let? exp) (analyze-let->combination exp))
-       ((begin? exp) (analyze-sequence (begin-actions exp)))
-       ((cond? exp) (analyze (cond->if exp)))
+ (cond ((self-evaluating? exp) exp)
+       ((variable? exp) (lookup-variable-value exp env))
+       ((quoted? exp) (text-of-quotation exp))
+       ((assignment? exp) (eval-assignment exp env))
+       ((definition? exp) (eval-definition exp env))
+       ((if? exp) (eval-if exp env))
+       ((lambda? exp)
+        (make-procedure (lambda-parameters exp)
+                        (lambda-body exp)
+                        env))
+       ((begin? exp)
+        (eval-sequence (begin-actions exp) env))
+       ((cond? exp) (eval (cond->if exp) env))
        ((application? exp)
         (my-apply (actual-value (operator exp) env)
-                  (operands exp)
-                  env))
+                                (operands exp)
+                                env))
        (else
-        (error "Unknown expression type -- ANALYZE" exp))))
+        (error "Unknown expression type -- EVAL" exp))))
 
-; self-evaluating
+
+(define (actual-value exp env)
+  (print "actual-value!!")
+  (force-it (eval exp env)))
+
+(define (force-it obj)
+  (if (thunk? obj)
+      (actual-value (thunk-exp obj) (thunk-env obj))
+      obj))
+
+(define (delay-it exp env)
+ (list 'thunk exp env))
+
+(define (thunk? obj)
+ (tagged-list? obj 'thunk))
+
+(define (thunk-exp thunk) (cadr thunk))
+(define (thunk-env thunk) (caddr thunk))
+
+
+
 (define (self-evaluating? exp)
  (cond ((number? exp) true)
        ((string? exp) true)
        (else false)))
 
-(define (analyze-self-evaluating exp)
- (lambda (env) exp))
-
-; quote
-(define (quoted? exp)
- (tagged-list? exp 'quote))
-
-(define (analyze-quoted? exp)
- (let ((qval (text-of-quotation exp)))
-  (lambda (env) qval)))
-
-(define (text-of-quotation exp) (cadr exp))
-
-; variable
 (define (variable? exp) (symbol? exp))
-(define (analyze-variable exp)
- (lambda (env) (lookup-variable-value exp env)))
 
 ; tagged-list
 (define (tagged-list? exp tag)
@@ -62,17 +66,16 @@
      (eq? (car exp) tag)
      false))
 
+; quote
+(define (quoted? exp)
+ (tagged-list? exp 'quote))
+
+(define (text-of-quotation exp) (cadr exp))
+
 
 ; assignment
 (define (assignment? exp)
  (tagged-list? exp 'set!))
-
-(define (analyze-assignment exp)
- (let ((var (assignment-variable exp))
-       (vproc (analyze (definition-value exp))))
-  (lambda (env)
-   (set-variable-value! var (vproc env) env)
-   'ok)))
 
 (define (assignment-variable exp) (cadr exp))
 (define (assignment-value exp) (caddr exp))
@@ -80,13 +83,6 @@
 ; definition
 (define (definition? exp)
  (tagged-list? exp 'define))
-
-(define (analyze-definition exp)
- (let ((var (definition-variable exp))
-       (vproc (analyze (definition-value exp))))
- (lambda (env)
-  (define-variable! var (vproc env) env)
-  'ok)))
 
 (define (definition-variable exp)
  (if (symbol? (cadr exp))
@@ -101,149 +97,15 @@
 
 ; lambda
 (define (lambda? exp) (tagged-list? exp 'lambda))
-
-(define (analyze-lambda exp)
- (let ((vars (lambda-parameters exp))
-       (bproc (analyze-sequence (lambda-body exp))))
-  (lambda (env) (make-procedure vars bproc env))))
-
 (define (lambda-parameters exp) (cadr exp))
 (define (lambda-body exp) (cddr exp))
 
 (define (make-lambda parameters body)
  (cons 'lambda (cons parameters body)))
 
-; let
-(define (let? exp) (tagged-list? exp 'let))
-(define (let-parameters exp)
- (map car (cadr exp)))
-(define (let-real-parameters exp)
- (map cadr (cadr exp)))
-(define (let-body exp) (cddr exp))
-
-(define (analyze-let->combination exp)
- (let ((names (let-parameters exp))
-       (values (let-real-parameters exp))
-       (body (let-body exp)))
-       (analyze (cons (make-lambda names body) values))))
-
-(define (let->combination exp)
- (let ((names (let-parameters exp))
-       (values (let-real-parameters exp))
-       (body (let-body exp)))
-       (cons (make-lambda names body) values)))
-
-; unassigned
-(define (unassigned? val)
- (eq? val '*unassigned*))
-
-; Q 4.16
-;(lambda (vars)
-; (let ((u '*unassigned*)
-;       (v '*unassigned*))
-;  (set! u <e1>)
-;  (set! v <e2>)
-;  (<e3>)))
-;(define (scan-out-defines exp)
-;  ; 内部定義のみを抽出する
-;  (define (definitions exp)
-;   (cond
-;    ((null? exp) '())
-;    ((definition? (car exp))
-;     (cons (car exp) (definitions (cdr exp))))
-;    (else
-;     (definitions (cdr exp)))))
-;
-;  ; 内部定義を除いた部分を得る
-;  (define (filter-definitions exp)
-;   (cond
-;    ((null? exp) '())
-;    ((definition? (car exp))
-;     (filter-definitions (cdr exp)))
-;    (else
-;     (cons (car exp) (filter-definitions (cdr exp))))))
-;
-;  ; *unassigned*
-;  (define (unassignments definitions)
-;    (map (lambda (definition) (list
-;                               (definition-variable definition)
-;                               ''*unassigned*
-;                               )
-;          ) definitions))
-;
-;  (define (assignments definitions)
-;    (map (lambda (definition) (list 'set!
-;                               (definition-variable definition)
-;                               (definition-value definition))
-;          ) definitions))
-;
-;  (define (make-let bindings body)
-;   (append (list 'let bindings) body))
-;
-;  (let (
-;        (definitions (definitions exp))
-;        (body (filter-definitions exp))
-;       )
-;   (if (null? definitions)
-;    ; 内部定義無しなので、そのまま返す?
-;    exp
-;    ; 内部定義をletに掃き出す
-;    (list (make-let (unassignments definitions)
-;                    (append (assignments definitions)
-;                            body))))))
-
-
-; 問 Q 4.20
-; letrec
-(define (letrec? exp) (tagged-list? exp 'letrec))
-(define (letrec-definitions exp)
- (cadr exp))
-(define (letrec-parameters exp)
- (map car (cadr exp)))
-(define (letrec-parameter-fns exp)
- (map cadr (cadr exp)))
-(define (letrec-body exp) (cddr exp))
-
-(define (letrec->combination exp)
-  ; *unassigned*
-  (define (unassignments names)
-    (map (lambda (name) (list
-                          name
-                          ''*unassigned*
-                          )
-           ) names))
-
-  ; (set! name fn) の作成
-  (define (assignments definitions)
-    (map (lambda (definition) (list 'set!
-                                    (car definition)
-                                    (cadr definition))
-           ) definitions))
-
-  (define (make-let bindings body)
-    (append (list 'let bindings) body))
-
-  (let (
-        (names (letrec-parameters exp))
-        (fns (letrec-parameter-fns exp))
-        (body (letrec-body exp))
-        )
-
-     (make-let (unassignments names)
-                     (append (assignments (letrec-definitions exp))
-                             body))))
 
 ; if
 (define (if? exp) (tagged-list? exp 'if))
-(define (analyze-if exp)
- (let ((pproc (analyze (if-predicate exp)))
-       (cproc (analyze (if-consequent exp)))
-       (aproc (analyze (if-alternative exp))))
-  (lambda (env)
-   (if (true? (pproc env))
-       (cproc env)
-       (aproc env)))))
-
 (define (if-predicate exp) (cadr exp))
 (define (if-consequent exp) (caddr exp))
 (define (if-alternative exp)
@@ -255,26 +117,11 @@
  (list 'if predicate consequent alternative))
 
 ; begin
-; 与えられた式を先頭から順に評価する構文
 (define (begin? exp) (tagged-list? exp 'begin))
 (define (begin-actions exp) (cdr exp))
 (define (last-exp? seq) (null? (cdr seq)))
 (define (first-exp seq) (car seq))
 (define (rest-exps seq) (cdr seq))
-
-(define (analyze-sequence exps)
- (define (sequentially proc1 proc2)
-  (lambda (env) (proc1 env) (proc2 env)))
- (define (loop first-proc rest-procs)
-  (if (null? rest-procs)
-       first-proc
-       (loop (sequentially first-proc (car rest-procs))
-             (cdr rest-procs))))
- (let ((procs (map analyze exps)))
-  (if (null? procs)
-      (error "Empty sequence -- ANALYZE"))
-  (loop (car procs) (cdr procs))))
-
 (define (sequence->exp seq)
  (cond ((null? seq) seq)
        ((last-exp? seq) (first-exp seq))
@@ -285,7 +132,6 @@
 
 ; 式
 (define (application? exp) (pair? exp))
-
 (define (operator exp) (car exp))
 (define (operands  exp) (cdr exp))
 (define (no-operands? ops) (null? ops))
@@ -347,11 +193,7 @@
 (define (compound-procedure? p)
  (tagged-list? p 'procedure))
 (define (procedure-parameters p) (cadr p))
-; q 4.16
 (define (procedure-body p) (caddr p))
-;(define (procedure-body p)
-; (scan-out-defines (caddr p)))
-
 (define (procedure-environment p) (cadddr p))
 
 ; environment
@@ -361,10 +203,7 @@
    (cond ((null? vars)
           (env-loop (enclosing-environment env)))
     ((eq? var (car vars))
-     (let ((result (car vals)))
-      (if (unassigned? result)
-          (error "Unassigned variable" var)
-          result)))
+     (car vals))
     (else (scan (cdr vars) (cdr vals)))))
   (if (eq? env the-empty-environment)
      (error "Unbound variable" var)
@@ -429,11 +268,42 @@
   initial-env))
 
 
-(define (actual-value exp env)
- (force-it (eval exp env)))
+
+(define (list-of-values exps env)
+ (if (no-operands? exps)
+     '()
+     (cons (eval (first-operand exps) env)
+           (list-of-values (rest-operands exps) env))))
+
+
+(define (eval-if exp env)
+ (if (true? (actual-value (if-predicate exp) env))
+     (eval (if-consequent exp) env)
+     (eval (if-alternative exp) env)))
+
+
+(define (eval-sequence exps env)
+ (cond ((last-exp? exps) (eval (first-exp exps) env))
+       (else (eval (first-exp exps) env)
+             (eval-sequence (rest-exps exps) env))))
+
+
+(define (eval-assignment exp env)
+ (set-variable-value! (assignment-variable exp)
+                      (eval (assignment-value exp) env)
+                      env)
+ 'ok)
+
+
+(define (eval-definition exp env)
+ (define-variable! (definition-variable exp)
+                   (eval (definition-value exp) env)
+                   env)
+ 'ok)
+
 
 ; apply
-(define (my-apply procedure arguments)
+(define (my-apply procedure arguments env)
  (cond ((primitive-procedure? procedure)
         (apply-primitive-procedure
          procedure
@@ -449,16 +319,19 @@
         (error
          "Unknown procedure type -- APPLY" procedure))))
 
-(define (list-of-arg-values exps env)
- (if (no-operands? exps)
-  '()
-  (cons (actual-values (first-operand exps) env)
-        (list-of-arg-values (rest-operands exps) env))))
 
+ (define (list-of-arg-values exps env)
+  (if (no-operands? exps)
+   '()
+   (cons (actual-value (first-operand exps) env)
+         (list-of-arg-values (rest-operands exps)
+                              env))))
 
 (define (list-of-delayed-args exps env)
  (if (no-operands? exps)
   '()
   (cons (delay-it (first-operand exps) env)
-        (list-of-delayed-args (rest-operands exps) env))))
-         
+        (list-of-delayed-args (rest-operands exps)
+                               env))))
+
+
