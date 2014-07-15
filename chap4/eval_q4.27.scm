@@ -34,7 +34,6 @@
 
 
 (define (actual-value exp env)
-  (print "actual-value!!")
   (force-it (eval exp env)))
 
 (define (force-it obj)
@@ -303,22 +302,25 @@
 
 
 ; apply
-(define (my-apply procedure arguments env)
+(define (my-apply procedure operands env)
  (cond ((primitive-procedure? procedure)
         (apply-primitive-procedure
          procedure
-         (list-of-arg-values arguments env)))
+         (list-of-arg-values operands env)))
        ((compound-procedure? procedure)
         (eval-sequence
           (procedure-body procedure)
           (extend-environment
             (procedure-parameters procedure)
-            (list-of-delayed-args arguments env)
+            (list-of-delayed-args operands env)
             (procedure-environment procedure))))
        (else
         (error
          "Unknown procedure type -- APPLY" procedure))))
 
+(use slib)
+(require 'trace)
+(trace my-apply)
 
  (define (list-of-arg-values exps env)
   (if (no-operands? exps)
