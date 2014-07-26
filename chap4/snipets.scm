@@ -25,3 +25,28 @@
   (if (< low high)
     (amb low (an-integer-between (+ low 1) high))
     high))
+
+; Q4.30
+(define (eval-sequence exps env)
+  (cond ((last-exp? exps) (eval (first-exp exps) env))
+        (else (actual-value (first-exp exps) env)
+              (eval-sequence (rest-exps exps) env))))
+
+(define (for-each proc items)
+ (if (null? items)
+     'done
+     (begin (proc (car items))
+            (for-each proc (cdr items)))))
+
+(for-each (lambda (x) (newline) (display x))
+          (list 57 321 88))
+         
+(define (p1 x)
+ (set! x (cons x '(2)))
+ x)
+
+(define (p2 x)
+ (define (p e)
+  e
+  x)
+ (p (set! x (cons x '(2)))))

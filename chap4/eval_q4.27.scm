@@ -36,10 +36,29 @@
 (define (actual-value exp env)
   (force-it (eval exp env)))
 
+;(define (force-it obj)
+;  (if (thunk? obj)
+;      (actual-value (thunk-exp obj) (thunk-env obj))
+;      obj))
+
+; メモ化されたサンク
+(define (evaluated-thunk? obj)
+ (tagged-list? obj 'evaluated-thunk))
+
+(define (thunk-value evaluated-thunk) (cadr evaluated-thunk))
 (define (force-it obj)
-  (if (thunk? obj)
-      (actual-value (thunk-exp obj) (thunk-env obj))
-      obj))
+ (cond ((thunk? obj)
+        (let ((result (actual-value
+                       (thunk-exp obj)
+                       (thunk-env obj))))
+         (set-car! obj 'evaluated-thunk)
+         (set-car! (cdr obj) result)
+         (set-cdr! (cdr obj) '())
+         result))
+       ((evaluated-thunk? obj)
+        (thunk-value obj))
+       (else obj)))
+
 
 (define (delay-it exp env)
  (list 'thunk exp env))
@@ -167,6 +186,8 @@
        (list 'null? null?)
        (list 'list list)
        (list 'print print)
+       (list 'newline newline)
+       (list 'display display)
        (list '+ +)
        (list '- -)
        (list '* *)
@@ -281,10 +302,16 @@
      (eval (if-alternative exp) env)))
 
 
+;(define (eval-sequence exps env)
+; (cond ((last-exp? exps) (eval (first-exp exps) env))
+;       (else (eval (first-exp exps) env)
+;             (eval-sequence (rest-exps exps) env))))
+
 (define (eval-sequence exps env)
  (cond ((last-exp? exps) (eval (first-exp exps) env))
-       (else (eval (first-exp exps) env)
+       (else (actual-value (first-exp exps) env)
              (eval-sequence (rest-exps exps) env))))
+
 
 
 (define (eval-assignment exp env)
@@ -318,9 +345,9 @@
         (error
          "Unknown procedure type -- APPLY" procedure))))
 
-(use slib)
-(require 'trace)
-(trace my-apply)
+;(use slib)
+;(require 'trace)
+;(trace my-apply)
 
  (define (list-of-arg-values exps env)
   (if (no-operands? exps)
