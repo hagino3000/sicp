@@ -1,3 +1,7 @@
+(define true #t)
+(define false #f)
+
+
 (define (make-machine register-names ops controller-text)
  (let ((machine (make-new-machine)))
   (for-each (lambda (register-name)
@@ -324,6 +328,14 @@
 
 
 (define (make-operation-exp exp machine labels operations)
+ ; q5.9
+ (map (lambda (operands)
+       (if (or (register-exp? operands)
+                (constant-exp? operands)
+           )
+            true
+            (error "Operand must be register or constant")
+       ))(operation-exp-operands exp))
  (let ((op (lookup-prim (operation-exp-op exp) operations))
        (aprocs
         (map (lambda (e)
