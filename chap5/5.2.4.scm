@@ -1,24 +1,22 @@
 (load "./register_machine.scm")
 
-(define gcd-machine
+(define plus-machine
  (make-machine
-  '(a b t)
-  (list (list 'rem remainder) (list '= =))
-  '(test-b
-      (test (op =) (reg b) (const 0))
-      (branch (label gcd-done))
-      (assign t (op rem) (reg a) (reg b))
-      (assign a (reg b))
-      (assign b (reg t))
-      (goto (label test-b))
-   gcd-done)))
+  '(a b c d)
+  (list
+   (list 'plus +)
+   (list '= =))
+  '(start
+      (assign d (op plus) (const 10) (reg b))
+      (assign c (op plus) (reg a) (reg b))
+      (goto (label done))
+   done)))
 
 
-(set-register-contents! gcd-machine 'a 206)
-(set-register-contents! gcd-machine 'b 40)
-(start gcd-machine)
-(print (get-register-contents gcd-machine 'a))
-(print "======= gcd-machine =======")
-
-
+(set-register-contents! plus-machine 'a 3)
+(set-register-contents! plus-machine 'b 7)
+(start plus-machine)
+(print (get-register-contents plus-machine 'c))
+(print (get-register-contents plus-machine 'd))
+((plus-machine 'stack) 'print-statistics)
 
