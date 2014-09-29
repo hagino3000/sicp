@@ -1,3 +1,5 @@
+; For q5.17
+; trace時に現在のラベルを表示する機能を追加したレジスタ計算機
 (define true #t)
 (define false #f)
 
@@ -12,7 +14,7 @@
    (assemble controller-text machine))
   machine))
 
-;; $B%l%8%9%?(B
+;; レジスタ
 
 (define (make-register name)
  (let ((contents '*unassigned*))
@@ -30,7 +32,7 @@
 (define (set-contents! register value)
  ((register 'set) value))
 
-;; $B%9%?%C%/(B
+;; スタック
 
 (define (make-stack)
  (let (
@@ -77,7 +79,7 @@
  ((stack 'push) value))
 
 
-;; $B4pK\7W;;5!(B
+;; 基本計算機
 
 (define (start machine)
  (machine 'start))
@@ -92,7 +94,7 @@
 (define (get-register machine reg-name)
  ((machine 'get-register) reg-name))
 
-;; $B%"%;%s%V%i(B
+;; アセンブラ
 
 (define (make-new-machine)
  (let ((pc (make-register 'pc))
@@ -223,7 +225,7 @@
       (error "Undefined label -- ASSEMBLE" label-name))))
 
 
-;; $BL?Na$N<B9T<jB3$-$N@8@.(B
+;; 命令の実行手続きの生成
 
 (define (make-execution-procedure inst labels machine pc flag stack ops)
  (cond ((eq? (car inst) 'assign)
@@ -243,7 +245,7 @@
        (else (error "Unknown instruction type -- ASSEMBLE"
                     inst))))
 
-;; assign$BL?Na(B
+;; assign命令
 
 (define (make-assign inst machine labels operations pc)
  (let ((target
@@ -323,7 +325,7 @@
  (cadr goto-instruction))
 
 
-;; $B$=$NB>(B
+;; その他
 
 (define (make-save inst machine stack pc)
  (let ((reg (get-register machine
