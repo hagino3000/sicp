@@ -129,10 +129,10 @@
       'done
       (begin
        (set! instruction-count (+ 1 instruction-count))
-       ((instruction-execute-proc (car insts)))
        (if trace-flag
         (print "next-instruction: " (caar insts))
         'pass)
+       ((instruction-execute-proc (car insts)))
        (execute)))))
     (define (dispatch message)
      (cond ((eq? message 'start)
