@@ -347,6 +347,17 @@
        (else
         (error "Unknown expression type -- ASSEMBLE" exp))))
 
+(define (make-perform inst machine labels operations pc)
+ (let ((action (perform-action inst)))
+   (if (operation-exp? action)
+       (let ((action-proc
+             (make-operation-exp
+              action machine labels operations)))
+         (lambda ()
+          (action-proc)
+          (advance-pc pc)))
+      (error "Bad PERFORM instruction -- ASSEMBLE" inst))))
+
 
 (define (register-exp? exp) (tagged-list? exp 'reg))
 (define (register-exp-reg exp) (cadr exp))
