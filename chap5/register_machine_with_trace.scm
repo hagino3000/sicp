@@ -377,7 +377,8 @@
  ; q5.9
  (map (lambda (operands)
        (if (or (register-exp? operands)
-                (constant-exp? operands)
+               (constant-exp? operands)
+               (label-exp? operands) ; make-compiled-procedureのために追加
            )
             true
             (error "Operand must be register or constant")
