@@ -79,12 +79,18 @@
 
 ; 変数
 (define (compile-variable exp target linkage env)
-  (end-with-linkage linkage
-                    (make-instruction-sequence '(env) (list target)
-                                               `((assign ,target
-                                                         (op lookup-variable-value)
-                                                         (const ,exp)
-                                                         (reg env))))))
+  (let ((addr (find-variable exp env)))
+      (end-with-linkage linkage
+                        (make-instruction-sequence '(env) (list target)
+                                                   `((assign ,target
+                                                             ; 実行時に環境を辿って変数ルックアップする
+                                                             ; (op lookup-variable-value)
+                                                             ; (const ,exp)
+
+                                                             ; 翻訳時に文面アドレスを割り出して実行時に利用する
+                                                             (op lexical-address-lookup)
+                                                             (const ,addr)
+                                                             (reg env)))))))
 
 ; =======================================================================
 ; p.344 単純式の翻訳 -- assignment と define
@@ -96,14 +102,19 @@
 
 (define (compile-assignment exp target linkage env)
   (let ((var (assignment-variable exp))
+        (addr (find-variable exp env))
         (get-value-code
           (compile (assignment-value exp) 'val 'next)))
     (end-with-linkage linkage
                       (preserving '(env)
                                   get-value-code
                                   (make-instruction-sequence '(env val) (list target)
-                                                             `((perform (op set-variable-value!)
-                                                                        (const ,var)
+                                                             ;`((perform (op set-variable-value!)
+                                                             ;           (const ,var)
+                                                             ;           (reg val)
+                                                             ;           (reg env))
+                                                             `((perform (op lexical-address-set!)
+                                                                        (const ,addr)
                                                                         (reg val)
                                                                         (reg env))
                                                                (assign ,target (const ok))))))))

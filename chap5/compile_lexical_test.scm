@@ -9,6 +9,8 @@
    (list 'cons cons)
    (list 'false? false?)
    (list 'true? true?)
+   (list 'lexical-address-lookup lexical-address-lookup)
+   (list 'lexical-address-set! lexical-address-set!)
    (list 'compiled-procedure-entry compiled-procedure-entry)
    (list 'compiled-procedure-env compiled-procedure-env)
    (list 'compiled-procedure? compiled-procedure?)
