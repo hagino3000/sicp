@@ -169,6 +169,7 @@
                 (frame-values frame)))))
   (env-loop env))
 
+
 (define (set-variable-value! var val env)
   (define (env-loop env)
     (define (scan vars vals)
@@ -183,6 +184,48 @@
           (scan (frame-variables frame)
                 (frame-values frame)))))
   (env-loop env))
+
+; q5.39
+; 文面アドレスと実行時環境を受けとり、指定した文面アドレスに格納した変数の値を返す手続き
+(define (lexical-address-lookup addr env)
+  (define (check-val val)
+    (if (eq? val '*unassigned*)
+        (error "Unbound value")
+        val))
+
+  (define (scan-vals vals var-pos)
+    (if (= var-pos 0)
+        (check-val (car vals))
+        (scan-vals (cdr vals) (- var-pos 1))))
+
+  (define (scan-env env frame-backward var-pos)
+    (if (eq? env the-empty-environment)
+        (error "Outside environment!!" addr)
+        (if (= frame-backward 0)
+            (scan-vals (frame-values (first-frame env)) var-pos)
+            (scan-env (enclosing-environment env) (- frame-backward 1) var-pos))))
+   (scan-env env (address-frame addr) (address-pos addr)))
+
+(define (lexical-address-set! addr val env)
+  (define (scan-vals vals var-pos)
+    (if (= var-pos 0)
+        (set-car! vals val)
+        (scan-vals (cdr vals) (- var-pos 1))))
+
+  (define (scan-env env frame-backward var-pos)
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable -- SET!" var)
+        (if (= frame-backward 0)
+            (scan-vals (frame-values (first-frame env)) var-pos)
+            (scan-env (enclosing-environment env) (- frame-backward 1) var-pos))))
+   (scan-env env (address-frame addr) (address-pos addr)))
+
+(define (address-frame addr)
+ (car addr))
+
+(define (address-pos addr)
+ (cadr addr))
+
 
 (define (define-variable! var val env)
   (let ((frame (first-frame env)))
