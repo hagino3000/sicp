@@ -242,7 +242,7 @@
     (if (eq? env the-empty-environment)
         'not-found
         (let ((frame (first-frame env)))
-          (scan (frame-variables frame) 0))))
+          (scan frame 0))))
   (env-loop env 0))
 
 
