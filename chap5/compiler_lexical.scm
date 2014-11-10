@@ -78,19 +78,21 @@
                                                `((assign ,target (const ,(text-of-quotation exp)))))))
 
 ; 変数
-(define (compile-variable exp target linkage env)
-  (let ((addr (find-variable exp env)))
+(define (compile-variable exp target linkage comp-env)
+  (let ((addr (find-variable exp comp-env)))
+   (if (eq? addr 'not-found)
       (end-with-linkage linkage
                         (make-instruction-sequence '(env) (list target)
                                                    `((assign ,target
-                                                             ; 実行時に環境を辿って変数ルックアップする
-                                                             ; (op lookup-variable-value)
-                                                             ; (const ,exp)
-
-                                                             ; 翻訳時に文面アドレスを割り出して実行時に利用する
+                                                             (op lookup-variable-value)
+                                                             (const ,exp)
+                                                             (reg env)))))
+      (end-with-linkage linkage
+                        (make-instruction-sequence '(env) (list target)
+                                                   `((assign ,target
                                                              (op lexical-address-lookup)
                                                              (const ,addr)
-                                                             (reg env)))))))
+                                                             (reg env))))))))
 
 ; =======================================================================
 ; p.344 単純式の翻訳 -- assignment と define
@@ -100,9 +102,9 @@
 ; 実際に変数の設定（ or 定義）したもの、と、式全体の値（ 'ok ）を target に割り当てれるもの、の2命令列を連結する
 ; 連結した2命令列は env と val を必要としていて、 target を修正する
 
-(define (compile-assignment exp target linkage env)
+(define (compile-assignment exp target linkage comp-env)
   (let ((var (assignment-variable exp))
-        (addr (find-variable exp env))
+        (addr (find-variable exp comp-env))
         (get-value-code
           (compile (assignment-value exp) 'val 'next)))
     (end-with-linkage linkage
@@ -215,7 +217,7 @@
 (define (compiled-procedure-entry c-proc) (cadr c-proc))
 (define (compiled-procedure-env c-proc) (caddr c-proc))
 
-(define (compile-lambda-body exp proc-entry env)
+(define (compile-lambda-body exp proc-entry comp-env)
   (let ((formals (lambda-parameters exp)))
     (append-instruction-sequences
       (make-instruction-sequence '(env proc argl) '(env)
@@ -226,7 +228,7 @@
                                             (const ,formals)
                                             (reg argl)
                                             (reg env))))
-      (compile-sequence (lambda-body exp) 'val 'return env))))
+      (compile-sequence (lambda-body exp) 'val 'return comp-env))))
 
 ; =======================================================================
 ; p.347 組合せの翻訳

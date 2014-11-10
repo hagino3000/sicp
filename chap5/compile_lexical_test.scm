@@ -68,23 +68,18 @@
    )
 
 (define the-global-environment (setup-environment))
+(define env1 (extend-environment '(a b) '(10 5) the-global-environment))
 
 (define compiled
   (compile
-    ;'(+ 10 20 30)
-    '(begin
-        (define v 10)
-        (define (factorial-alt n)
-            (if (= n 1)
-            1
-            (* n (factorial-alt (- n 1)))))
-        (factorial-alt v))
+    '(+ a b)
+    ;'((lambda (a b) (+ a b)) 5 10)
     'val
     'next
-    the-global-environment
+    '((a b))
     ))
 
-;(print (caddr compiled))
+(print (caddr compiled))
 (print "Compiled")
 
 (define factorial-machine
@@ -97,6 +92,6 @@
 (print "Start machine")
 
 (factorial-machine 'trace-on)
-(set-register-contents! factorial-machine 'env the-global-environment)
+(set-register-contents! factorial-machine 'env env1)
 (start factorial-machine)
 (print "val=>" (get-register-contents factorial-machine 'val))
