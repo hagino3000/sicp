@@ -75,7 +75,7 @@
 (define (compile-quoted exp target linkage env)
   (end-with-linkage linkage
                     (make-instruction-sequence '() (list target)
-                                               `((assign ,target (cost ,(text-of-quotation exp)))))))
+                                               `((assign ,target (const ,(text-of-quotation exp)))))))
 
 ; 変数
 (define (compile-variable exp target linkage env)
