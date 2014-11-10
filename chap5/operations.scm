@@ -226,6 +226,27 @@
 (define (address-pos addr)
  (cadr addr))
 
+(define (make-address frame-backward var-pos)
+ (list frame-backward var-pos))
+
+; q5.41
+; 引数として変数と翻訳時環境を取り、その環境に対する変数の文面アドレスを返す手続きを書け
+(define (find-variable var env)
+  (define (env-loop env frame-backward)
+    (define (scan vars var-pos)
+      (cond ((null? vars)
+             (env-loop (enclosing-environment env) (+ frame-backward 1)))
+            ((eq? var (car vars))
+             (make-address frame-backward var-pos))
+            (else (scan (cdr vars) (+ var-pos 1)))))
+    (if (eq? env the-empty-environment)
+        'not-found
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame) 0))))
+  (env-loop env 0))
+
+
+
 
 (define (define-variable! var val env)
   (let ((frame (first-frame env)))
